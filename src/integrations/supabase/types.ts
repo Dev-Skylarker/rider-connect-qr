@@ -14,7 +14,133 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      merch_orders: {
+        Row: {
+          amount_kes: number
+          created_at: string
+          id: string
+          profile_id: string
+          status: string
+        }
+        Insert: {
+          amount_kes?: number
+          created_at?: string
+          id?: string
+          profile_id: string
+          status?: string
+        }
+        Update: {
+          amount_kes?: number
+          created_at?: string
+          id?: string
+          profile_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merch_orders_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_methods: {
+        Row: {
+          account_name: string | null
+          account_number: string | null
+          created_at: string
+          id: string
+          is_primary: boolean
+          label: string | null
+          method_type: string
+          paybill_number: string | null
+          profile_id: string
+        }
+        Insert: {
+          account_name?: string | null
+          account_number?: string | null
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          label?: string | null
+          method_type: string
+          paybill_number?: string | null
+          profile_id: string
+        }
+        Update: {
+          account_name?: string | null
+          account_number?: string | null
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          label?: string | null
+          method_type?: string
+          paybill_number?: string | null
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_methods_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          bio: string | null
+          city: string | null
+          created_at: string
+          display_name: string | null
+          full_name: string | null
+          id: string
+          phone: string | null
+          photo_url: string | null
+          plate_number: string | null
+          qr_slug: string
+          route: string | null
+          status: string
+          updated_at: string
+          vehicle_type: string | null
+        }
+        Insert: {
+          bio?: string | null
+          city?: string | null
+          created_at?: string
+          display_name?: string | null
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          photo_url?: string | null
+          plate_number?: string | null
+          qr_slug?: string
+          route?: string | null
+          status?: string
+          updated_at?: string
+          vehicle_type?: string | null
+        }
+        Update: {
+          bio?: string | null
+          city?: string | null
+          created_at?: string
+          display_name?: string | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          photo_url?: string | null
+          plate_number?: string | null
+          qr_slug?: string
+          route?: string | null
+          status?: string
+          updated_at?: string
+          vehicle_type?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
