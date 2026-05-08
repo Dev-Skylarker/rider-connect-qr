@@ -23,6 +23,7 @@ export function SiteHeader() {
         <div className="flex items-center gap-2">
           {user ? (
             <>
+              {isStaff && <Link to="/admin"><Button variant="ghost" size="sm">Admin</Button></Link>}
               <Link to="/dashboard"><Button variant="ghost" size="sm">Dashboard</Button></Link>
               <Button variant="outline" size="sm" onClick={signOut}>Sign out</Button>
             </>
