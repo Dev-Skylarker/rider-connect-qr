@@ -1,9 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
+import { useIsStaff } from "@/hooks/use-is-admin";
 import { Button } from "@/components/ui/button";
 
 export function SiteHeader() {
   const { user, signOut } = useAuth();
+  const { isStaff } = useIsStaff();
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
