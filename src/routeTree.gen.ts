@@ -23,6 +23,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as RSlugRouteImport } from './routes/r.$slug'
 import { Route as ProfileCreateRouteImport } from './routes/profile.create'
 import { Route as AdminAdminIndexRouteImport } from './routes/_admin/admin.index'
+import { Route as AdminAdminRidersRouteImport } from './routes/_admin/admin.riders'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -93,6 +94,11 @@ const AdminAdminIndexRoute = AdminAdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAdminRidersRoute = AdminAdminRidersRouteImport.update({
+  id: '/admin/riders',
+  path: '/admin/riders',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/profile/create': typeof ProfileCreateRoute
   '/r/$slug': typeof RSlugRoute
+  '/admin/riders': typeof AdminAdminRidersRoute
   '/admin/': typeof AdminAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/profile/create': typeof ProfileCreateRoute
   '/r/$slug': typeof RSlugRoute
+  '/admin/riders': typeof AdminAdminRidersRoute
   '/admin': typeof AdminAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/profile/create': typeof ProfileCreateRoute
   '/r/$slug': typeof RSlugRoute
+  '/_admin/admin/riders': typeof AdminAdminRidersRoute
   '/_admin/admin/': typeof AdminAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -156,6 +165,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/profile/create'
     | '/r/$slug'
+    | '/admin/riders'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/profile/create'
     | '/r/$slug'
+    | '/admin/riders'
     | '/admin'
   id:
     | '__root__'
@@ -187,6 +198,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/profile/create'
     | '/r/$slug'
+    | '/_admin/admin/riders'
     | '/_admin/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -306,14 +318,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/admin/riders': {
+      id: '/_admin/admin/riders'
+      path: '/admin/riders'
+      fullPath: '/admin/riders'
+      preLoaderRoute: typeof AdminAdminRidersRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
+  AdminAdminRidersRoute: typeof AdminAdminRidersRoute
   AdminAdminIndexRoute: typeof AdminAdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAdminRidersRoute: AdminAdminRidersRoute,
   AdminAdminIndexRoute: AdminAdminIndexRoute,
 }
 
