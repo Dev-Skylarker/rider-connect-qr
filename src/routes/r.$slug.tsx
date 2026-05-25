@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Copy, Phone, MessageCircle, Sparkles, MapPin, Truck, Star, Check, ArrowRight } from "lucide-react";
+import { Copy, Phone, MessageCircle, Sparkles, MapPin, Truck, Star, Check, ArrowRight, Share2, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 type Profile = {
@@ -25,6 +25,7 @@ function PublicQR() {
   const [methods, setMethods] = useState<PM[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
+  const startTime = useRef(Date.now());
 
   useEffect(() => {
     (async () => {
@@ -45,12 +46,12 @@ function PublicQR() {
 
   if (loading) {
     return (
-      <div className="min-h-screen grid place-items-center bg-gradient-to-b from-primary/5 via-background to-background text-muted-foreground">
+      <div className="min-h-screen grid place-items-center bg-background text-muted-foreground">
         <div className="text-center">
           <div className="inline-block rounded-full bg-primary/10 p-4 mb-4">
             <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
           </div>
-          <p>Loading rider profile…</p>
+          <p className="text-sm">Loading…</p>
         </div>
       </div>
     );
@@ -58,15 +59,15 @@ function PublicQR() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen grid place-items-center bg-gradient-to-b from-primary/5 via-background to-background p-6">
+      <div className="min-h-screen grid place-items-center bg-background p-6">
         <div className="max-w-md text-center">
           <div className="inline-block rounded-full bg-primary/10 p-4 mb-4">
             <Sparkles className="h-8 w-8 text-primary" />
           </div>
-          <h1 className="text-3xl font-black mb-2">QR not active</h1>
-          <p className="text-muted-foreground mb-6">This QR isn't linked to an active rider profile yet.</p>
+          <h1 className="text-2xl font-black mb-2">QR not active</h1>
+          <p className="text-muted-foreground mb-6 text-sm">This QR isn't linked to an active rider profile yet.</p>
           <Link to="/" className="inline-block">
-            <Button size="lg" className="gap-2">
+            <Button size="lg" className="gap-2 bg-primary">
               Get your own QR <ArrowRight className="h-5 w-5" />
             </Button>
           </Link>
@@ -75,213 +76,240 @@ function PublicQR() {
     );
   }
 
-  const copy = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(id);
-    toast.success("Copied!");
-    setTimeout(() => setCopied(null), 2000);
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(id);
+      toast.success("Copied!");
+      setTimeout(() => setCopied(null), 1500);
+    }).catch(() => {
+      toast.error("Copy failed");
+    });
+  };
+
+  const createVCard = () => {
+    const vcard = `BEGIN:VCARD
+VERSION:3.0
+FN:${profile.display_name || profile.full_name}
+TEL:${profile.phone || ""}
+NOTE:${profile.vehicle_type} • ${profile.plate_number} • ${profile.route}
+URL:${typeof window !== 'undefined' ? window.location.href : ''}
+END:VCARD`;
+
+    const element = document.createElement('a');
+    element.setAttribute('href', `data:text/plain;charset=utf-8,${encodeURIComponent(vcard)}`);
+    element.setAttribute('download', `${profile.display_name || 'rider'}.vcf`);
+    element.style.display = 'none';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    toast.success("Contact saved!");
   };
 
   const methodTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      mpesa: "M-Pesa",
-      till: "Till",
-      paybill: "Paybill",
-      bank: "Bank Transfer",
-    };
+    const labels: Record<string, string> = { mpesa: "M-Pesa", till: "Till", paybill: "Paybill", bank: "Bank" };
     return labels[type] || type;
   };
 
   const getPaymentDisplay = (m: PM) => {
-    if (m.method_type === "paybill") {
-      return `Paybill ${m.paybill_number} Acc ${m.account_number}`;
-    }
+    if (m.method_type === "paybill") return `${m.paybill_number}|${m.account_number}`;
     return m.account_number || m.account_name || "N/A";
   };
 
+  const openMpesaApp = (m: PM) => {
+    const number = getPaymentDisplay(m);
+    const schemes = [
+      `com.safaricom.mpesa://payment/${number}`,
+      `mpesa:///${number}`,
+      `https://web.safaricom.co.ke/mpesa/`
+    ];
+
+    let opened = false;
+    schemes.forEach((scheme, idx) => {
+      setTimeout(() => {
+        if (!opened && idx === schemes.length - 1) {
+          window.location.href = schemes[schemes.length - 1];
+        } else if (scheme.startsWith('http')) {
+          window.location.href = scheme;
+        } else {
+          window.location.href = scheme;
+        }
+      }, idx * 100);
+    });
+    opened = true;
+  };
+
   const riderName = profile.display_name || profile.full_name || "Rider";
+  const primaryPayment = methods.find(m => m.is_primary) || methods[0];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary/5 via-background to-secondary/5">
-      {/* Header with branding */}
-      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+    <div className="min-h-screen bg-background">
+      {/* Sticky header with glassmorphism */}
+      <div className="sticky top-0 z-50 backdrop-blur-md bg-background/60 border-b border-white/10 supports-[backdrop-filter]:bg-white/40">
+        <div className="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-bold text-primary">
-            <div className="h-8 w-8 rounded-lg bg-primary text-primary-foreground grid place-items-center text-sm font-black">ST</div>
-            <span>ScanTap</span>
+            <div className="h-7 w-7 rounded-lg bg-primary text-white grid place-items-center text-xs font-black">ST</div>
           </Link>
-          <div className="flex items-center gap-1 text-xs font-medium bg-secondary/10 text-secondary-foreground rounded-full px-2 py-1">
-            <Check className="h-3 w-3" /> Verified
+          <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+            <Check className="h-3 w-3 text-accent" /> Verified
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto max-w-2xl px-4 py-6 sm:py-10">
-        {/* Main card */}
-        <div className="rounded-3xl bg-card border shadow-2xl overflow-hidden">
-          {/* Header gradient */}
-          <div className="relative h-32 sm:h-40 bg-gradient-to-r from-primary to-primary/80 overflow-hidden">
-            <div className="absolute inset-0 opacity-20">
-              <svg className="w-full h-full" viewBox="0 0 400 160" preserveAspectRatio="none">
-                <path d="M0,80 Q100,40 200,80 T400,80 L400,160 L0,160 Z" fill="currentColor" opacity="0.1" />
+      <div className="max-w-md mx-auto px-4 py-6">
+        {/* Profile card with glassmorphism */}
+        <div className="rounded-3xl backdrop-blur-xl bg-white/70 border border-white/60 shadow-2xl overflow-hidden">
+          <div className="relative h-32 bg-gradient-to-r from-primary to-secondary overflow-hidden">
+            <div className="absolute inset-0 opacity-30">
+              <svg className="w-full h-full" viewBox="0 0 300 120" preserveAspectRatio="none">
+                <path d="M0,60 Q75,30 150,60 T300,60 L300,120 L0,120 Z" fill="white" opacity="0.1" />
               </svg>
             </div>
           </div>
 
-          {/* Profile info */}
-          <div className="px-6 sm:px-8 pb-8">
-            {/* Profile picture */}
-            <div className="flex flex-col items-center -mt-20 mb-6 relative z-10">
-              <div className="h-32 w-32 sm:h-40 sm:w-40 rounded-full bg-card border-4 border-primary shadow-xl overflow-hidden">
+          <div className="px-6 pb-6">
+            <div className="flex flex-col items-center -mt-16 mb-4 relative z-10">
+              <div className="h-28 w-28 rounded-full bg-white border-4 border-primary shadow-xl overflow-hidden">
                 {profile.photo_url ? (
                   <img src={profile.photo_url} alt={riderName} className="h-full w-full object-cover" />
                 ) : (
-                  <div className="h-full w-full bg-gradient-to-br from-primary to-primary/80 grid place-items-center text-primary-foreground">
-                    <div className="text-6xl font-black">{riderName.charAt(0).toUpperCase()}</div>
+                  <div className="h-full w-full bg-gradient-to-br from-primary to-secondary grid place-items-center text-white">
+                    <span className="text-5xl font-black">{riderName.charAt(0).toUpperCase()}</span>
                   </div>
                 )}
               </div>
 
-              {/* Name and role */}
-              <h1 className="mt-6 text-3xl sm:text-4xl font-black text-center">{riderName}</h1>
-              <div className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground font-medium">
-                {profile.vehicle_type && <span>{profile.vehicle_type}</span>}
-                {profile.plate_number && (
-                  <>
-                    <span className="text-primary">·</span>
-                    <span className="font-bold text-primary">{profile.plate_number}</span>
-                  </>
+              <h1 className="mt-4 text-2xl font-black text-center text-foreground">{riderName}</h1>
+              {profile.vehicle_type && (
+                <p className="text-xs text-muted-foreground font-medium mt-1">
+                  {profile.vehicle_type} • <span className="text-primary font-bold">{profile.plate_number}</span>
+                </p>
+              )}
+            </div>
+
+            {(profile.route || profile.city) && (
+              <div className="grid grid-cols-2 gap-2 mb-5 text-center text-xs">
+                {profile.route && (
+                  <div className="rounded-lg bg-primary/8 border border-primary/15 py-2 px-2">
+                    <div className="text-muted-foreground font-medium mb-0.5">Route</div>
+                    <div className="font-bold text-foreground">{profile.route}</div>
+                  </div>
+                )}
+                {profile.city && (
+                  <div className="rounded-lg bg-accent/8 border border-accent/15 py-2 px-2">
+                    <div className="text-muted-foreground font-medium mb-0.5">City</div>
+                    <div className="font-bold text-foreground">{profile.city}</div>
+                  </div>
                 )}
               </div>
-            </div>
-
-            {/* Route and location info */}
-            <div className="grid grid-cols-2 gap-4 mb-8 px-0 sm:px-2">
-              {profile.route && (
-                <div className="rounded-xl bg-primary/5 border border-primary/10 p-4 text-center">
-                  <div className="text-xs font-semibold text-muted-foreground mb-1">Route</div>
-                  <div className="font-bold text-primary">{profile.route}</div>
-                </div>
-              )}
-              {profile.city && (
-                <div className="rounded-xl bg-secondary/5 border border-secondary/10 p-4 text-center">
-                  <div className="text-xs font-semibold text-muted-foreground mb-1">City</div>
-                  <div className="font-bold text-secondary-foreground">{profile.city}</div>
-                </div>
-              )}
-            </div>
-
-            {/* Bio */}
-            {profile.bio && (
-              <p className="text-center text-muted-foreground mb-8 leading-relaxed italic">
-                "{profile.bio}"
-              </p>
             )}
 
-            {/* Payment methods section */}
-            <div className="mb-8">
-              <div className="flex items-center gap-2 mb-4">
-                <Truck className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-bold">Payment Methods</h2>
-              </div>
+            {profile.bio && <p className="text-center text-xs text-muted-foreground mb-5 leading-relaxed italic">"{profile.bio}"</p>}
 
-              {methods.length === 0 ? (
-                <div className="rounded-xl border-2 border-dashed bg-muted/20 p-8 text-center">
-                  <p className="text-sm text-muted-foreground">No payment methods added yet.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {methods.map((m, idx) => (
-                    <button
-                      key={m.id}
-                      onClick={() => copy(getPaymentDisplay(m), m.id)}
-                      className="w-full group relative rounded-xl border bg-gradient-to-br from-card via-card to-muted/10 p-4 hover:border-primary/50 hover:shadow-lg transition-all duration-300 text-left"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="font-bold text-primary">{methodTypeLabel(m.method_type)}</span>
-                            {m.is_primary && (
-                              <span className="text-xs font-bold bg-secondary text-secondary-foreground rounded-full px-2 py-0.5 flex items-center gap-1">
-                                <Star className="h-3 w-3 fill-current" /> PRIMARY
-                              </span>
-                            )}
-                          </div>
-                          <div className="font-mono font-semibold text-foreground">{getPaymentDisplay(m)}</div>
-                          {m.account_name && <div className="text-xs text-muted-foreground mt-1">{m.account_name}</div>}
-                        </div>
-                        <div className="ml-4 flex-shrink-0">
-                          {copied === m.id ? (
-                            <div className="rounded-lg bg-green-500/10 text-green-600 p-2">
-                              <Check className="h-5 w-5" />
-                            </div>
-                          ) : (
-                            <div className="rounded-lg bg-primary/10 text-primary p-2 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                              <Copy className="h-5 w-5" />
-                            </div>
-                          )}
-                        </div>
+            {/* Primary action: Copy M-Pesa */}
+            {primaryPayment && (
+              <button
+                onClick={() => copyToClipboard(getPaymentDisplay(primaryPayment), primaryPayment.id)}
+                className="w-full mb-3 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white font-black py-4 px-4 text-center text-sm active:scale-95 transition-transform shadow-lg hover:shadow-xl flex items-center justify-center gap-2 high-contrast"
+              >
+                {copied === primaryPayment.id ? (
+                  <>
+                    <Check className="h-5 w-5" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-5 w-5" />
+                    Copy {methodTypeLabel(primaryPayment.method_type)}
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Payment methods */}
+            {methods.length > 1 && (
+              <div className="space-y-2 mb-4">
+                {methods.slice(1).map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => copyToClipboard(getPaymentDisplay(m), m.id)}
+                    className="w-full rounded-xl border border-border bg-white/50 backdrop-blur-sm p-3 hover:border-primary transition-all text-left text-sm active:bg-primary/5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-bold text-foreground text-xs">{methodTypeLabel(m.method_type)}</div>
+                        <div className="text-xs font-mono text-muted-foreground mt-0.5">{getPaymentDisplay(m)}</div>
                       </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                      {copied === m.id ? <Check className="h-4 w-4 text-accent" /> : <Copy className="h-4 w-4 text-primary" />}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Open M-Pesa App link */}
+            {primaryPayment && primaryPayment.method_type === "mpesa" && (
+              <button
+                onClick={() => openMpesaApp(primaryPayment)}
+                className="w-full text-accent font-bold text-sm py-2 hover:underline active:opacity-70 transition-opacity mb-3"
+              >
+                Open M-Pesa App
+              </button>
+            )}
+
+            {/* Save contact action */}
+            <button
+              onClick={createVCard}
+              className="w-full rounded-xl border border-primary/20 bg-primary/5 py-3 px-4 text-foreground font-bold text-sm active:bg-primary/10 transition-colors flex items-center justify-center gap-2 mb-3"
+            >
+              <FileText className="h-4 w-4" />
+              Save Contact
+            </button>
 
             {/* Quick actions */}
-            {profile.phone && (
-              <div className="grid grid-cols-2 gap-3">
-                <a href={`tel:${profile.phone}`}>
-                  <Button variant="outline" className="w-full h-12 font-semibold gap-2 hover:border-primary hover:text-primary">
-                    <Phone className="h-5 w-5" />
-                    <span>Call</span>
-                  </Button>
-                </a>
-                <a href={`https://wa.me/${profile.phone.replace(/\D/g, "")}`}>
-                  <Button variant="outline" className="w-full h-12 font-semibold gap-2 hover:border-secondary hover:text-secondary-foreground">
-                    <MessageCircle className="h-5 w-5" />
-                    <span>WhatsApp</span>
-                  </Button>
-                </a>
-              </div>
-            )}
+            <div className="grid grid-cols-2 gap-2">
+              {profile.phone && (
+                <>
+                  <a href={`tel:${profile.phone}`}>
+                    <button className="w-full rounded-xl border border-border bg-white/50 backdrop-blur-sm py-3 text-foreground font-bold text-sm active:bg-primary/5 transition-colors flex items-center justify-center gap-1.5">
+                      <Phone className="h-4 w-4" />
+                      Call
+                    </button>
+                  </a>
+                  <a href={`https://wa.me/${profile.phone.replace(/\D/g, "")}`}>
+                    <button className="w-full rounded-xl border border-border bg-white/50 backdrop-blur-sm py-3 text-foreground font-bold text-sm active:bg-primary/5 transition-colors flex items-center justify-center gap-1.5">
+                      <MessageCircle className="h-4 w-4" />
+                      Chat
+                    </button>
+                  </a>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Additional info cards */}
-        <div className="mt-8 grid sm:grid-cols-2 gap-4">
-          <div className="rounded-2xl border bg-card p-6">
-            <div className="inline-flex items-center justify-center h-10 w-10 rounded-lg bg-primary/10 mb-3">
-              <MapPin className="h-5 w-5 text-primary" />
-            </div>
-            <h3 className="font-bold mb-1">Verified Rider</h3>
-            <p className="text-sm text-muted-foreground">This profile is verified on ScanTap. Plate number and details have been confirmed.</p>
+        {/* Trust badges */}
+        <div className="mt-6 space-y-2">
+          <div className="rounded-xl bg-white/40 backdrop-blur-sm border border-white/60 p-3 text-center text-xs text-muted-foreground">
+            <span className="font-medium">Verified rider on ScanTap</span>
           </div>
-
-          <div className="rounded-2xl border bg-card p-6">
-            <div className="inline-flex items-center justify-center h-10 w-10 rounded-lg bg-secondary/10 mb-3">
-              <Sparkles className="h-5 w-5 text-secondary-foreground" />
-            </div>
-            <h3 className="font-bold mb-1">Secure Payments</h3>
-            <p className="text-sm text-muted-foreground">All payments go directly to the rider. No fees, no middleman, no commission.</p>
+          <div className="rounded-xl bg-white/40 backdrop-blur-sm border border-white/60 p-3 text-center text-xs text-muted-foreground">
+            <span className="font-medium">Payments go directly • No commission</span>
           </div>
         </div>
 
-        {/* CTA for non-riders */}
-        <div className="mt-8 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20 p-8 text-center">
-          <h2 className="text-2xl font-bold mb-2">Are you a rider?</h2>
-          <p className="text-muted-foreground mb-6">Get your own ScanTap QR sticker and start receiving payments instantly.</p>
+        {/* CTA */}
+        <div className="mt-8 text-center">
+          <p className="text-xs text-muted-foreground mb-3">Are you a rider too?</p>
           <Link to="/signup">
-            <Button size="lg" className="gap-2 shadow-lg">
-              Get your QR sticker <ArrowRight className="h-5 w-5" />
+            <Button size="sm" className="w-full bg-primary">
+              Get your QR sticker
             </Button>
           </Link>
         </div>
 
-        {/* Footer link */}
-        <div className="mt-6 text-center text-xs text-muted-foreground">
-          <Link to="/contact" className="hover:text-primary transition">
-            Need help? Contact support
+        <div className="mt-4 text-center">
+          <Link to="/contact" className="text-xs text-muted-foreground hover:text-primary transition-colors">
+            Support
           </Link>
         </div>
       </div>
